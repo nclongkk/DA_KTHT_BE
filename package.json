@@ -9,6 +9,9 @@
   },
   "author": "nclongkk",
   "license": "ISC",
+  "engines": {
+    "node": "v16.9.1"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "colors": "^1.4.0",
