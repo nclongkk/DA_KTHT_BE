@@ -5,12 +5,12 @@
   "main": "index.js",
   "scripts": {
     "start": "Set NODE_ENV=production&node app",
-    "dev": "nodemon app"
+    "dev": "nodemon app "
   },
   "author": "nclongkk",
   "license": "ISC",
   "engines": {
-    "node": "v16.9.1"
+  "node": "v16.9.1"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
