@@ -51,8 +51,6 @@ exports.login = async (req, res) => {
         bcrypt.compare(req.body.password, user.password, (err, isMatch) => {
           if (err) throw err;
           if (isMatch) {
-            console.log("hello");
-
             sendTokenResponse(user, 200, res);
           } else {
             res.status(400).json({ msg: "incorrect" });
