@@ -8,28 +8,20 @@ const bcrypt = require("bcryptjs");
  */
 exports.register = async (req, res) => {
   try {
-    User.findOne({ email: req.body.email }).then((user) => {
-      if (user) {
-        res.status(400).json({ msg: "existed" });
-      } else {
-        const newUser = new User({
-          name: req.body.name,
-          email: req.body.email,
-          password: req.body.password,
-          role: req.body.role,
-        });
+    if (await User.findOne({ email: req.body.email })) {
+      res.status(400).json({ msg: "existed" });
+    } else {
+      const { name, email, password } = req.body;
 
-        bcrypt.genSalt(10, (err, salt) => {
-          bcrypt.hash(newUser.password, salt, (err, hash) => {
-            if (err) throw err;
-            newUser.password = hash;
-            newUser.save();
-          });
-        });
+      // Create user
+      const newUser = await User.create({
+        name,
+        email,
+        password,
+      });
 
-        sendTokenResponse(newUser, 200, res);
-      }
-    });
+      sendTokenResponse(newUser, 200, res);
+    }
   } catch (error) {
     res.status(400).json(error);
   }
@@ -73,13 +65,23 @@ exports.getMe = async (req, res) => {
   }
 };
 
+/**
+ * @desc     Log out clear cookie
+ * @route    GET /api/v1/auth/logout
+ */
 exports.logout = async (req, res) => {
   try {
+    console.log(1);
     res.cookie("token", "none", {
       expires: new Date(Date.now() + 10 + 1000),
       httpOnly: true,
     });
-  } catch (error) {}
+    res.status(200).json({
+      success: true,
+    });
+  } catch (error) {
+    res.status(400).json(error);
+  }
 };
 // Get token from model create cookie and send response
 const sendTokenResponse = (user, statusCode, res) => {
