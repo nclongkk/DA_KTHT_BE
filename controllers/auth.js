@@ -60,6 +60,27 @@ exports.login = async (req, res) => {
     });
 };
 
+/**
+ * @desc  Get current logged in user
+ * @route GET /api/v1/auth/me
+ */
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    return res.status(200).json(user);
+  } catch (error) {
+    return res.status(400).json(error);
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    res.cookie("token", "none", {
+      expires: new Date(Date.now() + 10 + 1000),
+      httpOnly: true,
+    });
+  } catch (error) {}
+};
 // Get token from model create cookie and send response
 const sendTokenResponse = (user, statusCode, res) => {
   // Create toke
