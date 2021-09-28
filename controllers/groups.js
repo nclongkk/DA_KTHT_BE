@@ -7,8 +7,7 @@ const Group = require("../models/Group");
  */
 exports.getGroups = async (req, res) => {
   try {
-    let query;
-    query = Group.find({
+    let query = Group.find({
       $or: [
         { admin: ObjectId(req.user.id) },
         { "members.member": ObjectId(req.user.id) },
