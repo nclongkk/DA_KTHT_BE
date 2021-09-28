@@ -6,8 +6,8 @@ const Group = require("../models/Group");
  * @route   GET /api/v1/groups
  */
 exports.getGroups = async (req, res) => {
-  let query;
   try {
+    let query;
     query = Group.find({
       $or: [
         { admin: ObjectId(req.user.id) },
@@ -62,9 +62,9 @@ exports.getGroups = async (req, res) => {
 exports.createGroup = async (req, res) => {
   try {
     // Admin is the creator of this group
-    req.body.admin = req.user.id;
-    const group = await Group.create(req.body);
-    res.status(201).json(group);
+    const newGroup = { admin: req.user.id, ...req.body };
+    await Group.create(newGroup);
+    res.status(201).json(newGroup);
   } catch (error) {
     res.status(400).json(error);
   }
