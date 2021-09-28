@@ -9,6 +9,11 @@ const MemberSchema = mongoose.Schema({
   workDays: [Number],
 });
 
+// Set _id default field as member
+MemberSchema.pre("save", async function () {
+  this._id = this.member;
+});
+
 const GroupSchema = new mongoose.Schema({
   admin: {
     type: mongoose.Schema.ObjectId,
