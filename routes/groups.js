@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getGroups,
+  getGroup,
   createGroup,
   updateGroup,
   deleteGroup,
@@ -11,14 +12,9 @@ const {
   updateWorkDay,
 } = require("../controllers/groups");
 
-const { protect } = require("../middleware/auth");
-
-router.route("/").get(protect, getGroups).post(protect, createGroup);
-router.route("/:id").patch(protect, updateGroup).delete(protect, deleteGroup);
-router.route("/:id/member").put(protect, addMember);
-router
-  .route("/:id/member/:memberId")
-  .patch(protect, updateWorkDay)
-  .delete(protect, deleteMember);
+router.route("/").get(getGroups).post(createGroup);
+router.route("/:id").get(getGroup).patch(updateGroup).delete(deleteGroup);
+router.route("/:id/member").put(addMember);
+router.route("/:id/member/:memberId").patch(updateWorkDay).delete(deleteMember);
 
 module.exports = router;

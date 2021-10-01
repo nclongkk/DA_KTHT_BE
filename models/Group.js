@@ -6,11 +6,29 @@ const MemberSchema = mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: "User",
   },
-  workDays: [Number],
+  workDays: [
+    {
+      dayOfWeek: {
+        type: Number,
+        min: 0,
+        max: 6,
+      },
+      timeStart: {
+        type: Number,
+        min: 0,
+        max: 24,
+      },
+      timeFinish: {
+        type: Number,
+        min: 0,
+        max: 24,
+      },
+    },
+  ],
 });
 
 // Set _id default field as member
-MemberSchema.pre("save", async function () {
+MemberSchema.pre("save", function () {
   this._id = this.member;
 });
 
@@ -42,10 +60,6 @@ const GroupSchema = new mongoose.Schema({
   secretCode: {
     type: String,
     default: crypto.randomBytes(20).toString("hex"),
-  },
-  workingTimePerDay: {
-    type: Number,
-    default: 8,
   },
   feePerHour: {
     type: Number,
