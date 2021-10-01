@@ -12,6 +12,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: "/resources/images/avatars/default.png",
   },
+  datasetImages: {
+    type: String,
+    default: "/resources/images",
+  },
   email: {
     type: String,
     required: [true, "Please add an email"],
