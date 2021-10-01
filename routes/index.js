@@ -5,6 +5,7 @@ const { protect } = require("../middleware/auth");
 
 app.use("/auth", require("./auth"));
 app.use(protect);
+app.use("/users", require("./users"));
 app.use("/groups", require("./groups"));
 
 module.exports = app;

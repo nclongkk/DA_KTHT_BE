@@ -1,8 +1,8 @@
 {
-  "name": "devcamp",
+  "name": "DA_KTHT",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "start": "Set NODE_ENV=production&node app",
     "dev": "nodemon app "
