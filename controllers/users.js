@@ -29,15 +29,17 @@ exports.personalSchedule = async (req, res) => {
       { $unwind: "$members" },
       { $match: { "members.member": ObjectId(req.user.id) } },
       { $unwind: "$members.workDays" },
+      { $sort: { "members.workDays.timeStart": 1 } },
       {
         $group: {
-          _id: "$members.workDays",
+          _id: "$members.workDays.dayOfWeek",
           group: {
             $push: {
               name: "$name",
               description: "$description",
-              workingTimePerDay: "$workingTimePerDay",
               feePerHour: "$feePerHour",
+              timeStart: "$members.workDays.timeStart",
+              timeFinish: "$members.workDays.timeFinish",
             },
           },
         },
