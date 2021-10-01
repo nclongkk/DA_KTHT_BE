@@ -9,7 +9,7 @@ const {
   deleteGroup,
   addMember,
   deleteMember,
-  updateWorkDay
+  updateWorkDay,
 } = require("../controllers/groups");
 
 router.route("/").get(getGroups).post(createGroup);
