@@ -1,6 +1,6 @@
 const { ObjectId } = require("mongodb");
 const Group = require("../models/Group");
-
+const User = require("../models/User");
 /**
  * @desc    GET all groups which this user has joined
  * @route   GET /api/v1/groups
@@ -49,6 +49,25 @@ exports.getGroups = async (req, res) => {
     const groups = await query;
 
     res.status(200).json({ currentPage: page, totalPage, totalGroups, groups });
+  } catch (error) {
+    res.status(400).json(error);
+  }
+};
+
+/**
+ * @desc  Get specific group
+ * @route GET /api/v1/groups/:id
+ */
+exports.getGroup = async (req, res) => {
+  try {
+    const group = await Group.find({ _id: ObjectId(req.params.id) })
+      .select("-members.workDays")
+      .populate({ path: "admin", select: "name avatar email" })
+      .populate({
+        path: "members.member",
+        select: "name avatar",
+      });
+    res.status(200).json(group);
   } catch (error) {
     res.status(400).json(error);
   }
@@ -112,7 +131,18 @@ exports.deleteGroup = async (req, res) => {
  */
 exports.addMember = async (req, res) => {
   try {
-    req.body._id = req.body.member;
+    const user = await User.findOne({ email: req.body.email });
+    if (
+      await Group.findOne({
+        "members.member": user._id,
+        _id: ObjectId(req.params.id),
+      })
+    )
+      return res
+        .status(400)
+        .json({ error: user.name + " has joined this group" });
+
+    req.body = { ...req.body, member: user._id };
     const result = await Group.updateOne(
       { _id: ObjectId(req.params.id) },
       { $addToSet: { members: req.body } }
@@ -145,17 +175,12 @@ exports.deleteMember = async (req, res) => {
  */
 exports.updateWorkDay = async (req, res) => {
   try {
-    await Group.updateOne(
-      { _id: ObjectId(req.params.id) },
-      { $pull: { members: { member: ObjectId(req.params.memberId) } } }
-    );
     const result = await Group.updateOne(
-      { _id: ObjectId(req.params.id) },
       {
-        $addToSet: {
-          members: { member: req.params.memberId, workDays: req.body },
-        },
-      }
+        _id: ObjectId(req.params.id),
+        "members.member": ObjectId(req.params.memberId),
+      },
+      { $set: { "members.$.workDays": req.body } }
     );
 
     res.status(200).json(result);
