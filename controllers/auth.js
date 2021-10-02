@@ -71,7 +71,6 @@ exports.getMe = async (req, res) => {
  */
 exports.logout = async (req, res) => {
   try {
-    console.log(1);
     res.cookie("token", "none", {
       expires: new Date(Date.now() + 10 + 1000),
       httpOnly: true,
