@@ -1,6 +1,7 @@
 const { ObjectId } = require("mongodb");
 const User = require("../models/User");
 const Group = require("../models/Group");
+const bcrypt = require("bcryptjs");
 
 /**
  * @desc    Modify information
@@ -8,6 +9,7 @@ const Group = require("../models/Group");
  */
 exports.updateUser = async (req, res) => {
   try {
+    if (req.body.password) req.body.password = await encode(req.body.password);
     const user = await User.findByIdAndUpdate(req.user.id, req.body, {
       new: true,
       runValidators: true,
@@ -53,4 +55,9 @@ exports.personalSchedule = async (req, res) => {
   } catch (error) {
     res.status(400).json(error);
   }
+};
+
+const encode = async (password) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(password, salt);
 };
