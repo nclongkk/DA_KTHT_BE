@@ -33,22 +33,15 @@ exports.personalSchedule = async (req, res) => {
       { $unwind: "$members.workDays" },
       { $sort: { "members.workDays.timeStart": 1 } },
       {
-        $group: {
-          _id: "$members.workDays.dayOfWeek",
-          group: {
-            $push: {
-              name: "$name",
-              description: "$description",
-              feePerHour: "$feePerHour",
-              timeStart: "$members.workDays.timeStart",
-              timeFinish: "$members.workDays.timeFinish",
-            },
-          },
+        $project: {
+          _id: 0,
+          name: "$name",
+          description: "$description",
+          timeStart: "$members.workDays.timeStart",
+          timeFinish: "$members.workDays.timeFinish",
+          dayOfWeek: "$members.workDays.dayOfWeek",
         },
       },
-      { $addFields: { dayOfWeek: "$_id" } },
-      { $project: { _id: 0 } },
-      { $sort: { dayOfWeek: 1 } },
     ]);
 
     res.status(200).json(schedule);
