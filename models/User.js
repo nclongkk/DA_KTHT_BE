@@ -10,7 +10,11 @@ const UserSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
-    default: "/resources/images/avatars/default.png",
+    default: "",
+  },
+  phone: {
+    type: String,
+    match: [/^\d{10}$/, "Please add a vaid phone number"],
   },
   datasetImages: {
     type: String,

@@ -1,6 +1,7 @@
 const { ObjectId } = require("mongodb");
 const User = require("../models/User");
 const Group = require("../models/Group");
+const bcrypt = require("bcryptjs");
 
 /**
  * @desc    Modify information
@@ -8,6 +9,7 @@ const Group = require("../models/Group");
  */
 exports.updateUser = async (req, res) => {
   try {
+    if (req.body.password) req.body.password = await encode(req.body.password);
     const user = await User.findByIdAndUpdate(req.user.id, req.body, {
       new: true,
       runValidators: true,
@@ -31,26 +33,24 @@ exports.personalSchedule = async (req, res) => {
       { $unwind: "$members.workDays" },
       { $sort: { "members.workDays.timeStart": 1 } },
       {
-        $group: {
-          _id: "$members.workDays.dayOfWeek",
-          group: {
-            $push: {
-              name: "$name",
-              description: "$description",
-              feePerHour: "$feePerHour",
-              timeStart: "$members.workDays.timeStart",
-              timeFinish: "$members.workDays.timeFinish",
-            },
-          },
+        $project: {
+          _id: 0,
+          name: "$name",
+          description: "$description",
+          timeStart: "$members.workDays.timeStart",
+          timeFinish: "$members.workDays.timeFinish",
+          dayOfWeek: "$members.workDays.dayOfWeek",
         },
       },
-      { $addFields: { dayOfWeek: "$_id" } },
-      { $project: { _id: 0 } },
-      { $sort: { dayOfWeek: 1 } },
     ]);
 
     res.status(200).json(schedule);
   } catch (error) {
     res.status(400).json(error);
   }
+};
+
+const encode = async (password) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(password, salt);
 };
