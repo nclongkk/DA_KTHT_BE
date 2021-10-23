@@ -58,8 +58,8 @@ exports.getGroups = async (req, res) => {
     }));
     groups.forEach((group) => {
       group.avatars = group.avatars.map((avatar) => avatar.avatar);
+      group.avatars = group.avatars.sort().reverse().slice(0, 4);
     });
-
     // Count number of member was present
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -85,6 +85,7 @@ exports.getGroups = async (req, res) => {
 
     res.status(200).json({ currentPage: page, totalPage, totalGroups, groups });
   } catch (error) {
+    console.log(error);
     res.status(400).json(error);
   }
 };
