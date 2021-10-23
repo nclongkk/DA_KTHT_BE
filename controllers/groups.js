@@ -68,6 +68,7 @@ exports.getGroups = async (req, res) => {
         TimeCheckin.find({ group: ObjectId(group.id), day: today }).count()
       )
     );
+    console.log(present);
     groups = groups.map((group, index) => ({
       ...group,
       checkedIn: present[index],
