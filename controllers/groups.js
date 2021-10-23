@@ -64,7 +64,7 @@ exports.getGroups = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const checkedIn = await TimeCheckin.find({
-      group: ObjectId(group.id),
+      group: ObjectId("6150b5c637cef39b11366cc8"),
       day: today,
     });
     console.log(checkedIn);
@@ -91,6 +91,7 @@ exports.getGroups = async (req, res) => {
 
     res.status(200).json({ currentPage: page, totalPage, totalGroups, groups });
   } catch (error) {
+    console.log(error);
     res.status(400).json(error);
   }
 };
