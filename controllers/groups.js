@@ -62,12 +62,14 @@ exports.getGroups = async (req, res) => {
 
     // Count number of member was present
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkedIn = await TimeCheckin.find({
+    let day = new Date("10/23/2021");
+    day.setHours(0, 0, 0, 0);
+    console.log(day);
+    const time = await TimeCheckin.find({
       group: ObjectId("6150b5c637cef39b11366cc8"),
-      day: today,
+      day,
     });
-    console.log(checkedIn);
+    console.log(time);
     const present = await Promise.all(
       groups.map((group) =>
         TimeCheckin.find({ group: ObjectId(group.id), day: today }).count()
