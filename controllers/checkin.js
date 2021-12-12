@@ -11,7 +11,7 @@ exports.checkin = async (req, res) => {
   try {
     const { groupId, userId } = req.body;
     const dayOfWeek = new Date().getDay();
-
+    console.log(req.body);
     let group = await Group.aggregate([
       { $unwind: "$members" },
       {

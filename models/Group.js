@@ -61,6 +61,10 @@ const GroupSchema = new mongoose.Schema({
     type: String,
     default: crypto.randomBytes(20).toString("hex"),
   },
+  groupImage: {
+    type: String,
+    default: "",
+  },
   feePerHour: {
     type: Number,
     default: 20,

@@ -32,6 +32,7 @@ exports.getGroups = async (req, res) => {
           _id: 0,
           members: 1,
           name: "$name",
+          groupImage: "$groupImage",
           description: "$description",
           numbersOfMember: { $size: "$members" },
           role: {
@@ -58,7 +59,10 @@ exports.getGroups = async (req, res) => {
       ...rest,
     }));
     groups.forEach((group) => {
-      group.avatars = group.avatars.map((avatar) => avatar.avatar);
+      group.avatars = group.avatars.map(({ avatar, name }) => ({
+        avatar,
+        name,
+      }));
     });
 
     // Count number of member was present
@@ -75,18 +79,15 @@ exports.getGroups = async (req, res) => {
     let day = new Date();
     console.log(day);
     day.setHours(0, 0, 0, 0);
-    console.log(day);
     const time = await TimeCheckin.find({
       group: ObjectId("6150b5c637cef39b11366cc8"),
       day,
     });
-    console.log(time);
     const present = await Promise.all(
       groups.map((group) =>
         TimeCheckin.find({ group: ObjectId(group.id), day }).count()
       )
     );
-    console.log(present);
     groups = groups.map((group, index) => ({
       ...group,
       checkedIn: present[index],
@@ -120,7 +121,7 @@ exports.getGroup = async (req, res) => {
       .populate({ path: "admin", select: "name avatar email" })
       .populate({
         path: "members.member",
-        select: "name avatar",
+        select: "name avatar email",
       });
     res.status(200).json(group);
   } catch (error) {
