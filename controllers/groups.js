@@ -72,13 +72,13 @@ exports.getGroups = async (req, res) => {
     // convertDay = day.split("T")[0];
     // let today = new Date(convertDay);
     // console.log(today);
-    // const time = await TimeCheckin.find({
-    //   group: ObjectId("6150b5c637cef39b11366cc8"),
-    //   day,
-    // });
-    // console.log(time);
     let day = new Date();
     day.setHours(0, 0, 0, 0);
+    const time = await TimeCheckin.find({
+      group: ObjectId("6150b5c637cef39b11366cc8"),
+      day,
+    });
+    console.log(time);
     const present = await Promise.all(
       groups.map((group) =>
         TimeCheckin.find({ group: ObjectId(group.id), day }).count()
