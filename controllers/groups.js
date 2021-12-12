@@ -73,6 +73,7 @@ exports.getGroups = async (req, res) => {
     // let today = new Date(convertDay);
     // console.log(today);
     let day = new Date();
+    console.log(day);
     day.setHours(0, 0, 0, 0);
     console.log(day);
     const time = await TimeCheckin.find({
