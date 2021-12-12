@@ -1,4 +1,5 @@
 const { ObjectId } = require("mongodb");
+const moment = require("moment");
 const Group = require("../models/Group");
 const TimeCheckin = require("../models/TimeCheckin");
 const User = require("../models/User");
@@ -61,18 +62,26 @@ exports.getGroups = async (req, res) => {
     });
 
     // Count number of member was present
-    const today = new Date();
-    let day = new Date("10/23/2021");
+    // const today = new Date();
+    // let day = new Date("12/12/2021");
+    // let day = moment();
+    // day.setHours(0, 0, 0, 0);
+    // day = new Date(
+    //   day.hour(0).minute(0).second(0).millisecond(0)
+    // ).toISOString();
+    // convertDay = day.split("T")[0];
+    // let today = new Date(convertDay);
+    // console.log(today);
+    // const time = await TimeCheckin.find({
+    //   group: ObjectId("6150b5c637cef39b11366cc8"),
+    //   day,
+    // });
+    // console.log(time);
+    let day = new Date();
     day.setHours(0, 0, 0, 0);
-    console.log(day);
-    const time = await TimeCheckin.find({
-      group: ObjectId("6150b5c637cef39b11366cc8"),
-      day,
-    });
-    console.log(time);
     const present = await Promise.all(
       groups.map((group) =>
-        TimeCheckin.find({ group: ObjectId(group.id), day: today }).count()
+        TimeCheckin.find({ group: ObjectId(group.id), day }).count()
       )
     );
     console.log(present);

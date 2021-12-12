@@ -1,4 +1,9 @@
 const mongoose = require("mongoose");
+const getDate = () => {
+  let day = new Date();
+  day.setHours(0, 0, 0, 0);
+  return day;
+};
 
 const TimeCheckinSchema = mongoose.Schema({
   group: {
@@ -14,7 +19,7 @@ const TimeCheckinSchema = mongoose.Schema({
   },
   day: {
     type: Date,
-    default: Date.now,
+    default: getDate(),
   },
 });
 
