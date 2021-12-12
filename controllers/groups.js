@@ -74,6 +74,7 @@ exports.getGroups = async (req, res) => {
     // console.log(today);
     let day = new Date();
     day.setHours(0, 0, 0, 0);
+    console.log(day);
     const time = await TimeCheckin.find({
       group: ObjectId("6150b5c637cef39b11366cc8"),
       day,
