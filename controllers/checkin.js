@@ -11,9 +11,10 @@ exports.checkin = async (req, res) => {
   try {
     const { groupId, userId } = req.body;
     const dayOfWeek = new Date().getDay();
-    console.log(req.body);
+    console.log(dayOfWeek);
     let group = await Group.aggregate([
       { $unwind: "$members" },
+      { $unwind: "$members.workDays" },
       {
         $match: {
           "members.member": ObjectId(userId),
@@ -21,7 +22,6 @@ exports.checkin = async (req, res) => {
           "members.workDays.dayOfWeek": dayOfWeek,
         },
       },
-      { $unwind: "$members.workDays" },
       { $sort: { "members.workDays.timeStart": 1 } },
       {
         $project: {
@@ -38,16 +38,23 @@ exports.checkin = async (req, res) => {
     console.log(group);
     const { timeStart, timeFinish } = group;
     const checkinHour = new Date().getHours();
+    const checkinMinute = new Date().getMinutes();
+    if (checkinMinute < 10) {
+      checkinMinute = "0" + checkinMinute;
+    }
+    const checkinTime = parseFloat(checkinHour + "." + checkinMinute);
+    console.log(checkinTime);
     let timeLate;
-    if (checkinHour - timeStart <= 0) {
+    if (checkinTime - timeStart <= 0) {
       timeLate = 0;
     }
-    if (timeStart < checkinHour < timeFinish) {
-      timeLate = checkinHour - timeStart;
+    if (timeStart < checkinTime < timeFinish) {
+      timeLate = checkinTime - timeStart;
     }
-    if (checkinHour > timeFinish) {
+    if (checkinTime > timeFinish) {
       timeLate = timeFinish - timeStart;
     }
+    timeLate = timeLate.toFixed(2);
     const checkin = await TimeCheckin.create({
       group: groupId,
       user: userId,

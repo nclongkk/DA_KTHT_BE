@@ -3,7 +3,7 @@ const moment = require("moment");
 const Group = require("../models/Group");
 const TimeCheckin = require("../models/TimeCheckin");
 const User = require("../models/User");
-
+const sendEmail = require("../utils/sendEmail");
 /**
  * @desc    GET all groups which this user has joined
  * @route   GET /api/v1/groups
@@ -53,7 +53,6 @@ exports.getGroups = async (req, res) => {
         },
       },
     ]);
-
     //remove unnecessary property
     groups = groups.map(({ members, ...rest }) => ({
       ...rest,
@@ -116,15 +115,45 @@ exports.getGroups = async (req, res) => {
  */
 exports.getGroup = async (req, res) => {
   try {
-    const group = await Group.find({ _id: ObjectId(req.params.id) })
-      .select("-members.workDays")
+    const groupId = req.params.id;
+    let group = await Group.findOne({ _id: groupId })
       .populate({ path: "admin", select: "name avatar email" })
       .populate({
         path: "members.member",
         select: "name avatar email",
+      })
+      .lean();
+
+    group.members = group.members.map((member) => {
+      let checkScheduleToday = false;
+      member.workDays.forEach((workDay) => {
+        if (workDay.dayOfWeek === new Date().getDay()) {
+          checkScheduleToday = true;
+        }
       });
+      return { ...member, hasScheduleToday: checkScheduleToday };
+    });
+
+    let day = new Date();
+    day.setHours(0, 0, 0, 0);
+    let listMembersCheckedIn = await TimeCheckin.find({
+      group: groupId,
+      day,
+    }).select("user");
+    listMembersCheckedIn = listMembersCheckedIn.map((member) =>
+      String(member.user)
+    );
+
+    group.members = group.members.map((member) => {
+      if (listMembersCheckedIn.includes(String(member.member._id))) {
+        return { ...member, workDays: undefined, checkedIn: true };
+      } else {
+        return { ...member, workDays: undefined, checkedIn: false };
+      }
+    });
     res.status(200).json(group);
   } catch (error) {
+    console.log(error);
     res.status(400).json(error);
   }
 };
@@ -210,6 +239,51 @@ exports.addMember = async (req, res) => {
 };
 
 /**
+ * @desc  Detail working history of member
+ * @route GET /api/v1/groups/:id/member/:memberId
+ */
+exports.detailMember = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const memberId = req.params.memberId;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monday = getMonday(today);
+    const listCheckedInInWeek = await TimeCheckin.find({
+      group: groupId,
+      user: memberId,
+      day: { $gte: monday, $lte: today },
+    });
+    let workingDay = await Group.aggregate([
+      { $match: { _id: ObjectId(groupId) } },
+      { $unwind: "$members" },
+      { $match: { "members.member": ObjectId(memberId) } },
+      { $unwind: "$members.workDays" },
+      {
+        $project: {
+          members: 1,
+        },
+      },
+    ]);
+    workingDay = workingDay.map((element) => element.members.workDays);
+
+    workingDay = workingDay.map((day) => {
+      let tmp = { ...day, checkedIn: false };
+      listCheckedInInWeek.forEach((checkedIn) => {
+        if (checkedIn.day.getDay() === day.dayOfWeek) {
+          tmp = { ...day, checkedIn: true, timeLate: checkedIn.timeLate };
+        }
+      });
+      return tmp;
+    });
+
+    res.status(200).json(workingDay);
+  } catch (error) {
+    res.status(400).json(error);
+  }
+};
+
+/**
  * @desc  Delete member in group
  * @route DELETE /api/v1/groups/:id/member/:memberId
  */
@@ -243,4 +317,28 @@ exports.updateWorkDay = async (req, res) => {
   } catch (error) {
     res.status(400).json(error);
   }
+};
+
+/**
+ * @desc  Send report of members in group to  email of creator
+ * @route POST /api/v1/groups/:id/sendEmail
+ */
+exports.sendReport = async (req, res) => {
+  try {
+    await sendEmail({
+      email: "nclongkk@gmail.com",
+      subject: "Test mail sender",
+      message: "this is a testing mail",
+    });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(400).json(error);
+  }
+};
+
+const getMonday = (d) => {
+  d = new Date(d);
+  var day = d.getDay(),
+    diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+  return new Date(d.setDate(diff));
 };
