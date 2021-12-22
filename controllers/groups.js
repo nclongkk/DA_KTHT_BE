@@ -1,55 +1,83 @@
 const { ObjectId } = require("mongodb");
+const moment = require("moment");
 const Group = require("../models/Group");
+const TimeCheckin = require("../models/TimeCheckin");
 const User = require("../models/User");
+const sendEmail = require("../utils/sendEmail");
 /**
  * @desc    GET all groups which this user has joined
  * @route   GET /api/v1/groups
  */
 exports.getGroups = async (req, res) => {
   try {
-    let query = Group.find({
-      $or: [
-        { admin: ObjectId(req.user.id) },
-        { "members.member": ObjectId(req.user.id) },
-      ],
+    // //Pagination, default page 1, limit 5
+
+    let groups = await Group.aggregate([
+      {
+        $match: {
+          $or: [
+            { admin: ObjectId(req.user.id) },
+            { "members.member": ObjectId(req.user.id) },
+          ],
+        },
+      },
+      {
+        $project: {
+          id: "$_id",
+          _id: 0,
+          members: 1,
+          name: "$name",
+          groupImage: "$groupImage",
+          description: "$description",
+          numbersOfMember: { $size: "$members" },
+          role: {
+            $cond: [
+              { $eq: ["$admin", ObjectId(req.user.id)] },
+              "admin",
+              "user",
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.member",
+          foreignField: "_id",
+          as: "avatars",
+        },
+      },
+    ]);
+    //remove unnecessary property
+    groups = groups.map(({ members, ...rest }) => ({
+      ...rest,
+    }));
+    groups.forEach((group) => {
+      group.avatars = group.avatars.map(({ avatar, name }) => ({
+        avatar,
+        name,
+      }));
     });
 
-    //Select fields
-    if (req.query.select) {
-      const fields = req.query.select.split(",").join(" ");
-      query = query.select(fields);
-    }
+    let day = new Date();
+    day.setHours(0, 0, 0, 0);
+    const time = await TimeCheckin.find({
+      group: ObjectId("6150b5c637cef39b11366cc8"),
+      day,
+    });
+    const present = await Promise.all(
+      groups.map((group) =>
+        TimeCheckin.find({ group: ObjectId(group.id), day }).count()
+      )
+    );
+    groups = groups.map((group, index) => ({
+      ...group,
+      checkedIn: present[index],
+    }));
 
-    //sort by group creation time
-    query = query.sort("-createdAt");
-
-    // //Pagination, default page 1, limit 5
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 5;
-    const startIndex = (page - 1) * limit;
-    const totalGroups = await Group.find({
-      $or: [
-        { admin: ObjectId(req.user.id) },
-        { "members.member": ObjectId(req.user.id) },
-      ],
-    }).count();
-    const totalPage =
-      Math.floor(totalGroups / limit) + (totalGroups % limit ? 1 : 0);
-
-    query = query.skip(startIndex).limit(limit);
-
-    //JOIN with User DB
-    query = query
-      .populate({ path: "admin", select: "name avatar email" })
-      .populate({
-        path: "members.member",
-        select: "name avatar",
-      });
-
-    const groups = await query;
-
-    res.status(200).json({ currentPage: page, totalPage, totalGroups, groups });
+    res.status(200).json({ groups });
   } catch (error) {
+    console.log(error);
     res.status(400).json(error);
   }
 };
@@ -60,15 +88,45 @@ exports.getGroups = async (req, res) => {
  */
 exports.getGroup = async (req, res) => {
   try {
-    const group = await Group.find({ _id: ObjectId(req.params.id) })
-      .select("-members.workDays")
+    const groupId = req.params.id;
+    let group = await Group.findOne({ _id: groupId })
       .populate({ path: "admin", select: "name avatar email" })
       .populate({
         path: "members.member",
-        select: "name avatar",
+        select: "name avatar email",
+      })
+      .lean();
+
+    group.members = group.members.map((member) => {
+      let checkScheduleToday = false;
+      member.workDays.forEach((workDay) => {
+        if (workDay.dayOfWeek === new Date().getDay()) {
+          checkScheduleToday = true;
+        }
       });
+      return { ...member, hasScheduleToday: checkScheduleToday };
+    });
+
+    let day = new Date();
+    day.setHours(0, 0, 0, 0);
+    let listMembersCheckedIn = await TimeCheckin.find({
+      group: groupId,
+      day,
+    }).select("user");
+    listMembersCheckedIn = listMembersCheckedIn.map((member) =>
+      String(member.user)
+    );
+
+    group.members = group.members.map((member) => {
+      if (listMembersCheckedIn.includes(String(member.member._id))) {
+        return { ...member, workDays: undefined, checkedIn: true };
+      } else {
+        return { ...member, workDays: undefined, checkedIn: false };
+      }
+    });
     res.status(200).json(group);
   } catch (error) {
+    console.log(error);
     res.status(400).json(error);
   }
 };
@@ -154,6 +212,56 @@ exports.addMember = async (req, res) => {
 };
 
 /**
+ * @desc  Detail working history of member
+ * @route GET /api/v1/groups/:id/member/:memberId
+ */
+exports.detailMember = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const memberId = req.params.memberId;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setDate(today.getDate() + 1);
+    const monday = getMonday(today);
+    const listCheckedInInWeek = await TimeCheckin.find({
+      group: groupId,
+      user: memberId,
+      day: { $gte: monday, $lte: today },
+    });
+    let workingDay = await Group.aggregate([
+      { $match: { _id: ObjectId(groupId) } },
+      { $unwind: "$members" },
+      { $match: { "members.member": ObjectId(memberId) } },
+      { $unwind: "$members.workDays" },
+      {
+        $project: {
+          members: 1,
+        },
+      },
+    ]);
+    workingDay = workingDay.map((element) => element.members.workDays);
+
+    let scheduleToday = null;
+    workingDay = workingDay.map((day) => {
+      let tmp = { ...day, checkedIn: false };
+      listCheckedInInWeek.forEach((checkedIn) => {
+        if (checkedIn.day.getDay() === day.dayOfWeek) {
+          tmp = { ...day, checkedIn: true, timeLate: checkedIn.timeLate };
+        }
+      });
+      if (tmp.dayOfWeek == new Date().getDay()) {
+        scheduleToday = tmp;
+      }
+      return tmp;
+    });
+
+    res.status(200).json({ workingDay, today: scheduleToday });
+  } catch (error) {
+    res.status(400).json(error);
+  }
+};
+
+/**
  * @desc  Delete member in group
  * @route DELETE /api/v1/groups/:id/member/:memberId
  */
@@ -187,4 +295,144 @@ exports.updateWorkDay = async (req, res) => {
   } catch (error) {
     res.status(400).json(error);
   }
+};
+
+/**
+ * @desc  Send report of members in group to  email of creator
+ * @route POST /api/v1/groups/:id/sendEmail
+ */
+exports.sendReport = async (req, res) => {
+  try {
+    const groupId = req.params.id;
+    const group = await Group.findById(groupId).populate({
+      path: "admin",
+      select: "email",
+    });
+
+    const firstDay = moment().startOf("month").toDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setDate(today.getDate() + 1);
+    let listCheckedIn = await TimeCheckin.aggregate([
+      { $match: { group: ObjectId(groupId) } },
+      { $match: { day: { $gte: firstDay, $lte: today } } },
+      {
+        $group: {
+          _id: "$user",
+          checkedIn: { $push: { timeLate: "$timeLate", day: "$day" } },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "info",
+        },
+      },
+    ]);
+
+    let htmlString = `<h1>Statistical list of attendance time of members in group ${
+      group.name
+    }</h1> <h2>From ${formatDay(firstDay)} to ${formatDay(today)}</h2>`;
+
+    // console.log(listCheckedIn[0].info[0].name);
+    for (let i = 0; i < listCheckedIn.length; i++) {
+      let userId = String(listCheckedIn[i]._id);
+      let mulct = 0;
+      htmlString += `<h3>${listCheckedIn[i].info[0].name}</h3>`;
+      htmlString += `<ul>`;
+      listCheckedIn[i].checkedIn.forEach((checkIn) => {
+        latedMinutes =
+          checkIn.timeLate == 0
+            ? 0
+            : parseInt(String(checkIn.timeLate).split(".")[0]) * 60 +
+              parseInt(String(checkIn.timeLate).split(".")[1]);
+        htmlString += `<li>Day ${formatDay(
+          checkIn.day
+        )}, time late: ${latedMinutes} minutes </li>`;
+      });
+      htmlString += `</ul>`;
+      let memberIdex = group.members.findIndex(
+        (member) => String(member.member) == userId
+      );
+      let workingDayOfMember = numberWorkingDay(
+        firstDay,
+        today,
+        group.members[memberIdex].workDays
+      );
+
+      htmlString += `<p>And ${Math.abs(
+        workingDayOfMember - listCheckedIn[i].checkedIn.length
+      )} days left of no attendance or forgot to take attendance </p>`;
+
+      // htmlString+=
+      let daytmp = moment().startOf("month").toDate();
+      while (daytmp < today) {
+        const member = group.members[memberIdex];
+        // console.log(member);
+
+        let indexCheckedIn = listCheckedIn[i].checkedIn.findIndex(
+          (checkIn) => checkIn.day.toISOString() === daytmp.toISOString()
+        );
+        if (indexCheckedIn > -1) {
+          mulct +=
+            (listCheckedIn[i].checkedIn[indexCheckedIn].timeLate / 0.6) *
+            group.feePerHour;
+        } else {
+          indexWorkingDay = member.workDays.findIndex(
+            (day) => day.dayOfWeek == daytmp.getDay()
+          );
+          if (indexWorkingDay > -1) {
+            mulct +=
+              (member.workDays[indexWorkingDay].timeFinish -
+                member.workDays[indexWorkingDay].timeStart) *
+              group.feePerHour;
+          }
+        }
+        daytmp.setDate(daytmp.getDate() + 1);
+      }
+      htmlString += `<h4> Total fines : ${mulct} VND</h4>`;
+    }
+    await sendEmail({
+      email: group.admin.email,
+      subject: `Report from DAKTHT of group ${group.name}`,
+      message: htmlString,
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json(error);
+  }
+};
+
+const getMonday = (d) => {
+  d = new Date(d);
+  var day = d.getDay(),
+    diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+  return new Date(d.setDate(diff));
+};
+
+const numberWorkingDay = (startDate, endDate, listWorkingDays) => {
+  // total days between these day
+  let DaysBetween =
+    (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
+  DaysBetween = DaysBetween - endDate.getDay() - (6 - startDate.getDay() + 1);
+
+  let count = 0;
+  for (let day of listWorkingDays) {
+    day.dayOfWeek >= startDate.getDay() && count++;
+    day.dayOfWeek <= endDate.getDay() && count++;
+  }
+  return count + Math.floor(DaysBetween / 7) * listWorkingDays.length;
+};
+
+const formatDay = (day) => {
+  let dd = String(day.getDate()).padStart(2, "0");
+  let mm = String(day.getMonth() + 1).padStart(2, "0"); //January is 0!
+  let yyyy = day.getFullYear();
+
+  str = mm + "/" + dd + "/" + yyyy;
+  return str;
 };
