@@ -152,7 +152,6 @@ exports.createGroup = async (req, res) => {
  */
 exports.updateGroup = async (req, res) => {
   try {
-    // const group = await Group.findById(req.params.id);
     const group = await Group.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
