@@ -307,8 +307,9 @@ exports.sendReport = async (req, res) => {
       path: "admin",
       select: "email",
     });
-
-    const firstDay = moment().startOf("month").toDate();
+    let firstDay = new Date();
+    // firstDay.setDate(1);
+    firstDay.setMonth(firstDay.getMonth() - 1);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     today.setDate(today.getDate() + 1);
